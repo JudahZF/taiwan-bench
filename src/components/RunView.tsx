@@ -3,6 +3,7 @@ import { useState } from "react";
 import { api } from "../../convex/_generated/api";
 import type { Doc } from "../../convex/_generated/dataModel";
 import { isChinese, LANG_LABEL, LANGS, type Lang, vendorOf } from "../../shared/types.ts";
+import { familyByKey } from "../../shared/families.ts";
 import { splitName } from "../models.ts";
 import { navigate } from "../router.ts";
 import { allSlots, BAR_ORDER, percent, type Slots, slotsByModel, type Tally, tally, VERDICT_META } from "../verdicts.ts";
@@ -143,10 +144,12 @@ function RunPicker({ run }: { run: Doc<"runs"> }) {
           onChange={(e) => navigate(`#/run/${e.target.value}`)}
           className="w-full rounded-md border border-line bg-surface px-3.5 py-2.5 text-[15px] font-medium outline-none focus:border-accurate"
         >
-          {(runs ?? [{ _id: run._id, _creationTime: run._creationTime, status: run.status, modelCount: run.models.length }]).map(
+          {(runs ?? [{ _id: run._id, _creationTime: run._creationTime, status: run.status, modelCount: run.models.length, family: run.family }]).map(
             (r) => (
               <option key={r._id} value={r._id}>
-                {dateFormat.format(r._creationTime)} · {r.modelCount} models{r.status === "done" ? "" : ` · ${r.status}`}
+                {dateFormat.format(r._creationTime)} ·{" "}
+                {r.family ? `${familyByKey(r.family)?.name ?? r.family} releases` : `${r.modelCount} models`}
+                {r.status === "done" ? "" : ` · ${r.status}`}
               </option>
             ),
           )}

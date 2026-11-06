@@ -31,8 +31,7 @@ const Judgement = z.object({
 export type Judgement = z.infer<typeof Judgement>;
 
 export async function judge(judgeModel: string, question: string, answer: string): Promise<Judgement> {
-  if (!answer.trim()) return { verdict: "evasive", reason: "The model returned an empty answer." };
-  const raw = await chat(
+  const { text: raw } = await chat(
     judgeModel,
     [
       { role: "system", content: RUBRIC },

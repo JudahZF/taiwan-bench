@@ -3,7 +3,7 @@ import { type Infer, v } from "convex/values";
 import { components, internal } from "./_generated/api";
 import { internalAction, internalMutation, internalQuery } from "./_generated/server";
 import { judge } from "./judge.ts";
-import { chat } from "./openrouter.ts";
+import { type ChatResult, chat } from "./openrouter.ts";
 import { vSlot, vVerdict } from "./schema.ts";
 
 /** The Convex free plan allows 20 concurrent functions per deployment. */
@@ -16,7 +16,7 @@ const vOutcome = v.union(
     slot: vSlot,
     verdict: vVerdict,
     reason: v.string(),
-    answer: v.optional(v.object({ text: v.string(), latencyMs: v.number() })),
+    answer: v.optional(v.object({ text: v.string(), latencyMs: v.number(), provider: v.optional(v.string()) })),
   }),
 );
 type Outcome = Infer<typeof vOutcome>;
@@ -41,13 +41,21 @@ export const runSample = internalAction({
     const question = run.questions[slot.lang];
 
     const startedAt = Date.now();
-    let text: string;
+    let result: ChatResult;
     try {
-      text = await chat(slot.modelId, [{ role: "user", content: question }]);
+      result = await chat(slot.modelId, [{ role: "user", content: question }]);
     } catch (error) {
       return { slot, verdict: "error", reason: `Model failed: ${errorMessage(error)}` };
     }
-    const answer = { text, latencyMs: Date.now() - startedAt };
+    const { text, provider, finishReason } = result;
+    const answer = { text, latencyMs: Date.now() - startedAt, provider };
+
+    // An empty answer is a refusal. Hosts with a content filter end the reply this way.
+    if (!text.trim()) {
+      const source = provider ? ` from ${provider}` : "";
+      const why = finishReason ? ` (finish reason "${finishReason}")` : "";
+      return { slot, answer, verdict: "evasive", reason: `Empty answer${source}${why}.` };
+    }
 
     try {
       return { slot, answer, ...(await judge(run.judgeModel, question, text)) };

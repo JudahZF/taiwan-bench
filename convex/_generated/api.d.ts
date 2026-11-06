@@ -11,6 +11,7 @@
 import type * as admin from "../admin.js";
 import type * as bench from "../bench.js";
 import type * as env from "../env.js";
+import type * as families from "../families.js";
 import type * as judge from "../judge.js";
 import type * as openrouter from "../openrouter.js";
 import type * as runs from "../runs.js";
@@ -25,6 +26,7 @@ declare const fullApi: ApiFromModules<{
   admin: typeof admin;
   bench: typeof bench;
   env: typeof env;
+  families: typeof families;
   judge: typeof judge;
   openrouter: typeof openrouter;
   runs: typeof runs;

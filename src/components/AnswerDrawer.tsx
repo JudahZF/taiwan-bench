@@ -107,7 +107,10 @@ export function AnswerDrawer({ model, slots, questions, pick, onPick, onClose }:
             <>
               <div className="mt-6 mb-2 flex items-baseline justify-between text-[11px] font-semibold tracking-wider text-soft uppercase">
                 <span>Model answer</span>
-                <span>{(answer.latencyMs / 1000).toFixed(1)}s</span>
+                <span>
+                  {answer.provider && `${answer.provider} · `}
+                  {(answer.latencyMs / 1000).toFixed(1)}s
+                </span>
               </div>
               <div lang={zhAttr(lang)} className="text-[15px] leading-relaxed whitespace-pre-wrap text-ink">
                 {answer.text || <em className="text-faint">Empty answer.</em>}

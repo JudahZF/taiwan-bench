@@ -24,6 +24,8 @@ export default defineSchema({
     total: v.number(),
     finished: v.number(),
     finishedAt: v.optional(v.number()),
+    /** Set when the run measures one lab's lineage (key from shared/families.ts). */
+    family: v.optional(v.string()),
   }),
   // A sample exists only once its slot is finished. Answer text lives in
   // `answers`, so the live leaderboard query stays small.
@@ -38,5 +40,7 @@ export default defineSchema({
     sampleId: v.id("samples"),
     text: v.string(),
     latencyMs: v.number(),
+    /** The host that served the answer. Missing on answers saved before it was recorded. */
+    provider: v.optional(v.string()),
   }).index("by_sample", ["sampleId"]),
 });

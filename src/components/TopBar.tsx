@@ -2,6 +2,7 @@ import { Show, SignInButton, UserButton } from "@clerk/react";
 import { useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { env } from "../env.ts";
+import { useRoute } from "../router.ts";
 import { VERDICT_META } from "../verdicts.ts";
 
 export const CONTAINER = "mx-auto w-full max-w-[1240px] px-4 sm:px-8";
@@ -10,12 +11,20 @@ const LEGEND = ["accurate", "evasive", "false"] as const;
 
 export function TopBar() {
   const isAdmin = useQuery(api.runs.me)?.isAdmin ?? false;
+  const route = useRoute();
+  const link = (active: boolean) => `border-b pb-0.5 ${active ? "border-ink" : "border-transparent text-soft hover:text-ink"}`;
   return (
     <header className={`${CONTAINER} flex flex-wrap items-center gap-x-8 gap-y-3 py-6`}>
       <a href="#/" className="text-[22px] font-bold tracking-tight">
         <span className="text-accurate">Taiwan</span>Bench
       </a>
       <nav className="ml-auto flex flex-wrap items-center gap-x-6 gap-y-2 text-sm font-medium">
+        <a href="#/" className={link(route.view === "run" || route.view === "home")}>
+          Leaderboard
+        </a>
+        <a href="#/families" className={link(route.view === "families")}>
+          Over time
+        </a>
         {isAdmin && (
           <a href="#/new" className="border-b border-ink pb-0.5 hover:text-accurate">
             New run

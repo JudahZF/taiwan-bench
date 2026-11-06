@@ -2,7 +2,7 @@ import { ConvexError, v } from "convex/values";
 import { LANGS, MAX_MODELS, MAX_SAMPLES } from "../shared/types.ts";
 import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
-import { mutation, query } from "./_generated/server";
+import { type MutationCtx, mutation, query } from "./_generated/server";
 import { isAdmin, requireAdmin } from "./admin.ts";
 import { pool } from "./bench.ts";
 
@@ -22,6 +22,7 @@ export const list = query({
       question: run.questions.en,
       modelCount: run.models.length,
       samplesPerModel: run.samplesPerModel,
+      family: run.family,
     }));
   },
 });
@@ -53,47 +54,61 @@ export const answer = query({
       .unique(),
 });
 
+const vModel = v.object({ id: v.string(), name: v.string() });
+
 export const start = mutation({
   args: {
     questions: v.object({ en: v.string(), zh: v.string() }),
-    models: v.array(v.object({ id: v.string(), name: v.string() })),
+    models: v.array(vModel),
     samplesPerModel: v.number(),
     judgeModel: v.string(),
   },
   returns: v.id("runs"),
   handler: async (ctx, args) => {
     await requireAdmin(ctx);
-    const questions = { en: args.questions.en.trim(), zh: args.questions.zh.trim() };
-    const models = [...new Map(args.models.map((m) => [m.id, m])).values()];
-    const judgeModel = args.judgeModel.trim();
-    const { samplesPerModel } = args;
-
-    if (!questions.en || !questions.zh) throw new ConvexError("Both questions are required.");
-    if (!judgeModel) throw new ConvexError("A judge model is required.");
-    if (models.length < 1 || models.length > MAX_MODELS) throw new ConvexError(`Pick 1 to ${MAX_MODELS} models.`);
-    if (!Number.isInteger(samplesPerModel) || samplesPerModel < 1 || samplesPerModel > MAX_SAMPLES) {
-      throw new ConvexError(`Asks per model must be 1 to ${MAX_SAMPLES}.`);
-    }
-
-    const total = models.length * LANGS.length * samplesPerModel;
-    const runId = await ctx.db.insert("runs", {
-      status: "running",
-      questions,
-      judgeModel,
-      samplesPerModel,
-      models,
-      total,
-      finished: 0,
-    });
-
-    const slots = slotsOf(runId, models, samplesPerModel);
-    await pool.enqueueActionBatch(ctx, internal.bench.runSample, slots, {
-      onComplete: internal.bench.saveResult,
-      context: runId,
-    });
-    return runId;
+    return await createRun(ctx, args);
   },
 });
+
+/** Validates a new run, saves it, and queues every slot. The caller checks admin rights. */
+export async function createRun(
+  ctx: MutationCtx,
+  args: {
+    questions: { en: string; zh: string };
+    models: { id: string; name: string }[];
+    samplesPerModel: number;
+    judgeModel: string;
+    family?: string;
+  },
+) {
+  const questions = { en: args.questions.en.trim(), zh: args.questions.zh.trim() };
+  const models = [...new Map(args.models.map((m) => [m.id, m])).values()];
+  const judgeModel = args.judgeModel.trim();
+  const { samplesPerModel, family } = args;
+
+  if (!questions.en || !questions.zh) throw new ConvexError("Both questions are required.");
+  if (!judgeModel) throw new ConvexError("A judge model is required.");
+  if (models.length < 1 || models.length > MAX_MODELS) throw new ConvexError(`Pick 1 to ${MAX_MODELS} models.`);
+  if (!Number.isInteger(samplesPerModel) || samplesPerModel < 1 || samplesPerModel > MAX_SAMPLES) {
+    throw new ConvexError(`Asks per model must be 1 to ${MAX_SAMPLES}.`);
+  }
+
+  const runId = await ctx.db.insert("runs", {
+    status: "running",
+    questions,
+    judgeModel,
+    samplesPerModel,
+    models,
+    total: models.length * LANGS.length * samplesPerModel,
+    finished: 0,
+    family,
+  });
+  await pool.enqueueActionBatch(ctx, internal.bench.runSample, slotsOf(runId, models, samplesPerModel), {
+    onComplete: internal.bench.saveResult,
+    context: runId,
+  });
+  return runId;
+}
 
 export const cancel = mutation({
   args: { id: v.id("runs") },

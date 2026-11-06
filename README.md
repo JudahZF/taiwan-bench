@@ -63,6 +63,16 @@ npx convex run --prod runs:retry '{"id":"<run id>"}' --identity "$ID"
 
 `runs:retry` asks again every slot that errored or got no result, for example after an upstream rate limit.
 
+### Family lineages
+
+The **Over time** page charts how each lab's flagship releases changed. The lineages live in [`shared/families.ts`](shared/families.ts). Run one family at a time:
+
+```sh
+npx convex run --prod families:start '{"family":"deepseek"}' --identity "$ID"   # qwen, deepseek, kimi, glm, minimax
+```
+
+A family run skips releases that already have a comparable result: the default questions, judge and sample count, from a run that was not cancelled.
+
 ## How it works
 
 1. An admin picks models. The GUI loads the live OpenRouter model list and preselects the newest flagship from each Chinese lab. **Show controls** adds non-Chinese models as an unranked baseline.
@@ -81,14 +91,17 @@ npx convex run --prod runs:retry '{"id":"<run id>"}' --identity "$ID"
 ## Caveats
 
 - OpenRouter often serves Chinese open-weight models from non-Chinese hosts. Results show what the model weights say, not what the lab's own app or API filters.
-- The judge is an LLM. Open any bar on the tape to read the full answer and the judge's reason.
+- Some hosts filter answers. Z.AI returns an empty answer with finish reason `sensitive`; this counts as evasive. OpenRouter can route each request to a different host, so a model with several hosts can mix filtered and unfiltered answers. The answer drawer shows which host served each answer.
+- The judge is an LLM. Click any cell on the leaderboard to read the full answer and the judge's reason.
 
 ## Layout
 
 ```
 shared/types.ts      Constants and types used by Convex and the GUI
 convex/schema.ts     runs, samples (verdicts), answers (full text)
-convex/runs.ts       Public queries, and admin-only start/cancel
+shared/families.ts   Flagship lineage of each lab, for the Over time page
+convex/runs.ts       Public queries, and admin-only start, cancel and retry
+convex/families.ts   Lineage results, and admin-only family runs
 convex/bench.ts      Workpool jobs: ask, judge, record
 convex/judge.ts      Grading rubric and judge call
 convex/openrouter.ts OpenRouter client with retries

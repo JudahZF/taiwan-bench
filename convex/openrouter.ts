@@ -2,9 +2,26 @@ import { z } from "zod";
 import { openRouterEnv } from "./env.ts";
 
 const ChatResponse = z.object({
-  choices: z.array(z.object({ message: z.object({ content: z.string().nullish() }) })).optional(),
+  provider: z.string().nullish(),
+  choices: z
+    .array(
+      z.object({
+        message: z.object({ content: z.string().nullish() }),
+        finish_reason: z.string().nullish(),
+        native_finish_reason: z.string().nullish(),
+      }),
+    )
+    .optional(),
   error: z.object({ message: z.string() }).optional(),
 });
+
+export type ChatResult = {
+  text: string;
+  /** The host OpenRouter routed the request to, for example "Z.AI". */
+  provider?: string;
+  /** The host's own finish reason. Z.AI returns "sensitive" when its filter blocks an answer. */
+  finishReason?: string;
+};
 
 export type ChatMessage = { role: "system" | "user"; content: string };
 
@@ -17,7 +34,7 @@ export type ReasoningEffort = "low" | "medium" | "high";
  * One chat completion. Retries rate limits and server errors with backoff.
  * `effort` sets OpenRouter's reasoning effort. Leave it out to use the model's default.
  */
-export async function chat(model: string, messages: ChatMessage[], effort?: ReasoningEffort): Promise<string> {
+export async function chat(model: string, messages: ChatMessage[], effort?: ReasoningEffort): Promise<ChatResult> {
   const env = openRouterEnv();
   for (let attempt = 0; ; attempt++) {
     const res = await fetch(`${env.OPENROUTER_BASE_URL}/chat/completions`, {
@@ -40,7 +57,12 @@ export async function chat(model: string, messages: ChatMessage[], effort?: Reas
       const detail = body.success ? body.data.error?.message : undefined;
       throw new Error(`HTTP ${res.status}: ${detail ?? raw.slice(0, 300)}`);
     }
-    return body.data.choices[0]?.message.content ?? "";
+    const choice = body.data.choices[0];
+    return {
+      text: choice?.message.content ?? "",
+      provider: body.data.provider ?? undefined,
+      finishReason: choice?.native_finish_reason ?? choice?.finish_reason ?? undefined,
+    };
   }
 }
 
