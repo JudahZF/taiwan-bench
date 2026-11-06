@@ -1,0 +1,6 @@
+{
+  /* Convex typechecks its functions with this file. Settings come from the root config. */
+  "extends": "../tsconfig.json",
+  "include": ["./**/*", "../shared"],
+  "exclude": ["./_generated/**/*.js"]
+}
